@@ -1,352 +1,343 @@
 
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8">
     <title>Simple Jarvis 3D Audio Visualizer</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #000;
-            font-family: 'Arial', sans-serif;
-        }
-        #controlPanel {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 1;
-            background: rgba(20, 20, 20, 0.8);
-            padding: 15px;
-            border-radius: 8px;
-            width: 220px;
-            color: #fff;
-        }
-        #controlPanel h1 {
-            font-size: 16px;
-            margin-bottom: 10px;
-            color: #00bfff;
-        }
-        #controlPanel label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        #controlPanel input[type="file"] {
-            margin-bottom: 15px;
-            width: 100%;
-        }
-        #controlPanel button {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 8px;
-            font-size: 14px;
-            border: none;
-            border-radius: 4px;
-            background-color: #00bfff;
-            color: #fff;
-            cursor: pointer;
-        }
-        #controlPanel #downloadLink {
-            display: none;
-            margin-top: 8px;
-            color: #00bfff;
-            text-decoration: none;
-            font-size: 14px;
-        }
-        #visualizerCanvas {
-            display: block;
-        }
+      body {
+        margin: 0;
+        overflow: hidden;
+        background-color: #000;
+        font-family: 'Arial', sans-serif;
+      }
+      #controlPanel {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 1;
+        background: rgba(20, 20, 20, 0.8);
+        padding: 15px;
+        border-radius: 8px;
+        width: 220px;
+        color: #fff;
+      }
+      #controlPanel h1 {
+        font-size: 16px;
+        margin-bottom: 10px;
+        color: #00bfff;
+      }
+      #controlPanel label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      #controlPanel input[type="file"] {
+        margin-bottom: 15px;
+        width: 100%;
+      }
+      #controlPanel button {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 8px;
+        font-size: 14px;
+        border: none;
+        border-radius: 4px;
+        background-color: #00bfff;
+        color: #fff;
+        cursor: pointer;
+      }
+      #controlPanel #downloadLink {
+        display: none;
+        margin-top: 8px;
+        color: #00bfff;
+        text-decoration: none;
+        font-size: 14px;
+      }
+      #visualizerCanvas {
+        display: block;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div id="controlPanel">
-        <h1>Jarvis 3D Visualizer</h1>
-        <label for="upload">Select Audio File</label>
-        <input type="file" id="upload" accept=".mp3,.wav,.ogg">
-        <button id="start" disabled>Start</button>
-        <button id="stop" disabled>Stop</button>
-        <a id="downloadLink" href="#" download="visualization.webm">Download Video</a>
-  <div id="conversionProgress" style="margin-top: 10px; font-size: 14px; color: #fff;">
-    Conversion Progress: <span id="progressPercent">0%</span>
-</div>
+      <h1>Jarvis 3D Visualizer</h1>
+      <label for="upload">Select Audio File</label>
+      <input type="file" id="upload" accept=".mp3,.wav,.ogg">
+      <button id="start" disabled>Start</button>
+      <button id="stop" disabled>Stop</button>
+      <a id="downloadLink" href="#" download="visualization.webm">Download Video</a>
+      <div id="conversionProgress" style="margin-top: 10px; font-size: 14px; color: #fff;">
+        Conversion Progress: <span id="progressPercent">0%</span>
+      </div>
     </div>
 
     <audio id="audio" style="display: none;"></audio>
     <script src="https://cdn.jsdelivr.net/npm/three@0.136.0/build/three.min.js"></script>
     <script>
-        // ======================
-        // Animation Parameters
-        // ======================
-        const PARAMS = {
-            rendererWidth: window.innerWidth,
-            rendererHeight: window.innerHeight,
-            cameraFov: 100,
-            cameraNear: 0.1,
-            cameraFar: 1000,
-            cameraPositionZ: 50,
-            particleCount: 200, // Reduced particle count
-            sphereRadius: 4,
-            ringCount: 1, // Reduced ring count
-            ringStartRadius: 6,
-            ringRadiusIncrement: 3,
-            particleSize: 0.2,
-            particleSpeed: 0.1, // Reduced speed
-            mainColor: 0x00bfff, // Light blue
+      // ======================
+      // Animation Parameters
+      // ======================
+      const PARAMS = {
+        rendererWidth: window.innerWidth,
+        rendererHeight: window.innerHeight,
+        cameraFov: 100,
+        cameraNear: 0.1,
+        cameraFar: 1000,
+        cameraPositionZ: 50,
+        particleCount: 200, // Reduced particle count
+        sphereRadius: 4,
+        ringCount: 1, // Reduced ring count
+        ringStartRadius: 6,
+        ringRadiusIncrement: 3,
+        particleSize: 0.2,
+        particleSpeed: 0.1, // Reduced speed
+        mainColor: 0x00bfff, // Light blue
+      };
+      // ======================
+
+      let scene, camera, renderer;
+      let group;
+      let animationId;
+      let audioElement, audioContext, analyser, dataArray, bufferLength;
+      let mediaRecorder, chunks = [];
+      let startButton, stopButton, downloadLink;
+
+      init();
+
+      function init() {
+        // Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(1280, 720); // Fixed resolution for 1080p
+        renderer.setPixelRatio(window.devicePixelRatio || 1); // Ensure high DPI support
+        renderer.domElement.id = 'visualizerCanvas';
+        document.body.appendChild(renderer.domElement);
+
+        // Scene and Camera
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(
+          PARAMS.cameraFov,
+          1280 / 720, // Fixed aspect ratio for 1080p
+          PARAMS.cameraNear,
+          PARAMS.cameraFar
+        );
+        camera.position.z = PARAMS.cameraPositionZ;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        // Group
+        group = new THREE.Group();
+        scene.add(group);
+
+        // Create Jarvis visualizer
+        createJarvisVisualizer();
+
+        setupAudio();
+      }
+
+      function createJarvisVisualizer() {
+        // Central sphere
+        const sphereGeometry = new THREE.IcosahedronGeometry(PARAMS.sphereRadius, 1);
+        const sphereMaterial = new THREE.MeshBasicMaterial({
+          color: PARAMS.mainColor,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.7,
+        });
+        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        group.add(sphere);
+
+        // Rotating rings
+        const ringMaterial = new THREE.MeshBasicMaterial({
+          color: PARAMS.mainColor,
+          wireframe: true,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.5,
+        });
+
+        for (let i = 0; i < PARAMS.ringCount; i++) {
+          const radius = PARAMS.ringStartRadius + i * PARAMS.ringRadiusIncrement;
+          const ringGeometry = new THREE.RingGeometry(radius - 0.1, radius + 0.1, 16);
+          const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+          ring.rotation.x = Math.random() * Math.PI;
+          ring.rotation.y = Math.random() * Math.PI;
+          ring.rotation.z = Math.random() * Math.PI;
+          group.add(ring);
+        }
+
+        // Particles
+        const particleCount = PARAMS.particleCount;
+        const particlesGeometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount * 3);
+        const velocities = new Float32Array(particleCount);
+
+        for (let i = 0; i < particleCount; i++) {
+          positions[i * 3] = (Math.random() - 0.5) * 100;
+          positions[i * 3 + 1] = (Math.random() - 0.5) * 100;
+          positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
+          velocities[i] = Math.random() * PARAMS.particleSpeed;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        particlesGeometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
+
+        const particlesMaterial = new THREE.PointsMaterial({
+          color: PARAMS.mainColor,
+          size: PARAMS.particleSize,
+          transparent: true,
+          opacity: 0.7,
+        });
+        const particles = new THREE.Points(particlesGeometry, particlesMaterial);
+        particles.updateParticles = function () {
+          const positions = particlesGeometry.attributes.position.array;
+          const velocities = particlesGeometry.attributes.velocity.array;
+          for (let i = 0; i < particleCount; i++) {
+            positions[i * 3 + 1] += velocities[i];
+            if (positions[i * 3 + 1] > 50) {
+              positions[i * 3 + 1] = -50;
+            }
+          }
+          particlesGeometry.attributes.position.needsUpdate = true;
         };
-        // ======================
+        scene.add(particles);
+      }
 
-        let scene, camera, renderer;
-        let group;
-        let animationId;
-        let audioElement, audioContext, analyser, dataArray, bufferLength;
-        let mediaRecorder, chunks = [];
-        let startButton, stopButton, downloadLink;
+      function setupAudio() {
+        audioElement = document.getElementById('audio');
+        const upload = document.getElementById('upload');
+        startButton = document.getElementById('start');
+        stopButton = document.getElementById('stop');
+        downloadLink = document.getElementById('downloadLink');
 
-        init();
+        upload.addEventListener('change', function(e) {
+          const file = e.target.files[0];
+          if (file) {
+            const url = URL.createObjectURL(file);
+            audioElement.src = url;
+            audioElement.load();
 
-        function init() {
-            // Renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(PARAMS.rendererWidth, PARAMS.rendererHeight);
-            renderer.domElement.id = 'visualizerCanvas';
-            document.body.appendChild(renderer.domElement);
 
-            // Scene and Camera
-            scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(
-                PARAMS.cameraFov,
-                PARAMS.rendererWidth / PARAMS.rendererHeight,
-                PARAMS.cameraNear,
-                PARAMS.cameraFar
-            );
-            camera.position.z = PARAMS.cameraPositionZ;
-
-            // Lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-            scene.add(ambientLight);
-
-            // Group
-            group = new THREE.Group();
-            scene.add(group);
-
-            // Create Jarvis visualizer
-            createJarvisVisualizer();
-
-            // Event listeners
-            window.addEventListener('resize', onWindowResize, false);
-            setupAudio();
-        }
-
-        function createJarvisVisualizer() {
-            // Central sphere
-            const sphereGeometry = new THREE.IcosahedronGeometry(PARAMS.sphereRadius, 1);
-            const sphereMaterial = new THREE.MeshBasicMaterial({
-                color: PARAMS.mainColor,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.7,
-            });
-            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-            group.add(sphere);
-
-            // Rotating rings
-            const ringMaterial = new THREE.MeshBasicMaterial({
-                color: PARAMS.mainColor,
-                wireframe: true,
-                side: THREE.DoubleSide,
-                transparent: true,
-                opacity: 0.5,
-            });
-
-            for (let i = 0; i < PARAMS.ringCount; i++) {
-                const radius = PARAMS.ringStartRadius + i * PARAMS.ringRadiusIncrement;
-                const ringGeometry = new THREE.RingGeometry(radius - 0.1, radius + 0.1, 16);
-                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-                ring.rotation.x = Math.random() * Math.PI;
-                ring.rotation.y = Math.random() * Math.PI;
-                ring.rotation.z = Math.random() * Math.PI;
-                group.add(ring);
-            }
-
-            // Particles
-            const particleCount = PARAMS.particleCount;
-            const particlesGeometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(particleCount * 3);
-            const velocities = new Float32Array(particleCount);
-
-            for (let i = 0; i < particleCount; i++) {
-                positions[i * 3] = (Math.random() - 0.5) * 100;
-                positions[i * 3 + 1] = (Math.random() - 0.5) * 100;
-                positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
-                velocities[i] = Math.random() * PARAMS.particleSpeed;
-            }
-
-            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            particlesGeometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
-
-            const particlesMaterial = new THREE.PointsMaterial({
-                color: PARAMS.mainColor,
-                size: PARAMS.particleSize,
-                transparent: true,
-                opacity: 0.7,
-            });
-            const particles = new THREE.Points(particlesGeometry, particlesMaterial);
-            particles.updateParticles = function () {
-                const positions = particlesGeometry.attributes.position.array;
-                const velocities = particlesGeometry.attributes.velocity.array;
-                for (let i = 0; i < particleCount; i++) {
-                    positions[i * 3 + 1] += velocities[i];
-                    if (positions[i * 3 + 1] > 50) {
-                        positions[i * 3 + 1] = -50;
-                    }
-                }
-                particlesGeometry.attributes.position.needsUpdate = true;
-            };
-            scene.add(particles);
-        }
-
-        function setupAudio() {
-            audioElement = document.getElementById('audio');
-            const upload = document.getElementById('upload');
-            startButton = document.getElementById('start');
-            stopButton = document.getElementById('stop');
-            downloadLink = document.getElementById('downloadLink');
-
-            upload.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    const url = URL.createObjectURL(file);
-                    audioElement.src = url;
-                    audioElement.load();
-                  
-                  
 
             // Wait for audio metadata to load
             audioElement.addEventListener('loadedmetadata', function() {
-                startButton.disabled = false;
-                stopButton.disabled = true;
-                document.getElementById('progressPercent').innerText = `0%`; // Reset progress
-                chunks = [];
-            });
-                  
-                }
+              startButton.disabled = false;
+              stopButton.disabled = true;
+              document.getElementById('progressPercent').innerText = `0%`; // Reset progress
+              chunks = [];
             });
 
-            startButton.addEventListener('click', function() {
-                if (!audioContext) setupAudioContext();
-                audioElement.play();
-                animate();
-                startRecording();
-                startButton.disabled = true;
-                stopButton.disabled = false;
-            });
+          }
+        });
 
-            stopButton.addEventListener('click', function() {
-                audioElement.pause();
-                if (animationId) {
-                    cancelAnimationFrame(animationId);
-                }
-                stopRecording();
-                startButton.disabled = false;
-                stopButton.disabled = true;
-            });
-        }
+        startButton.addEventListener('click', function() {
+          if (!audioContext) setupAudioContext();
+          audioElement.play();
+          animate();
+          startRecording();
+          startButton.disabled = true;
+          stopButton.disabled = false;
+        });
 
-        function setupAudioContext() {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            audioContext.resume();
-            const source = audioContext.createMediaElementSource(audioElement);
-            analyser = audioContext.createAnalyser();
-            analyser.fftSize = 64; // Reduced fftSize
-            bufferLength = analyser.frequencyBinCount;
-            dataArray = new Uint8Array(bufferLength);
-            source.connect(analyser);
-            analyser.connect(audioContext.destination);
-        }
+        stopButton.addEventListener('click', function() {
+          audioElement.pause();
+          if (animationId) {
+            cancelAnimationFrame(animationId);
+          }
+          stopRecording();
+          startButton.disabled = false;
+          stopButton.disabled = true;
+        });
+      }
 
-        function animate() {
-            animationId = requestAnimationFrame(animate);
+      function setupAudioContext() {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        audioContext.resume();
+        const source = audioContext.createMediaElementSource(audioElement);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 128; // Reduced fftSize
+        bufferLength = analyser.frequencyBinCount;
+        dataArray = new Uint8Array(bufferLength);
+        source.connect(analyser);
+        analyser.connect(audioContext.destination);
+      }
 
-            analyser.getByteFrequencyData(dataArray);
-            const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
+      function animate() {
+        animationId = requestAnimationFrame(animate);
 
-            // Rotate group
-            group.rotation.y += 0.005 + average / 1000;
-            group.rotation.x += 0.002 + average / 2000;
+        analyser.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
 
-            // Scale group
-            const scale = 1 + average / 256;
-            group.scale.set(scale, scale, scale);
+        // Rotate group
+        group.rotation.y += 0.005 + average / 2000;
+        group.rotation.x += 0.002 + average / 3000;
 
-            // Update particles
-            scene.children.forEach(child => {
-                if (child.type === 'Points' && child.updateParticles) {
-                    child.updateParticles();
-                }
-            });
+        // Scale group
+        const scale = 1 + average / 256;
+        group.scale.set(scale, scale, scale);
 
-            renderer.render(scene, camera);
-        }
+        // Update particles
+        scene.children.forEach(child => {
+          if (child.type === 'Points' && child.updateParticles) {
+            child.updateParticles();
+          }
+        });
 
-        function startRecording() {
-            const canvasStream = renderer.domElement.captureStream(60); // 30 FPS
-            const audioStream = audioElement.captureStream();
+        renderer.render(scene, camera);
+      }
 
-            const combinedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioStream.getAudioTracks()]);
-            mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm; codecs=vp9' });
+      function startRecording() {
+        const canvasStream = renderer.domElement.captureStream(60); // 30 FPS
+        const audioStream = audioElement.captureStream();
 
-    const audioDuration = audioElement.duration; // Get the audio duration
-          
-    const progressSpan = document.getElementById('progressPercent');
-          
-            mediaRecorder.ondataavailable = function(event) {
-                if (event.data.size > 0) {
+        const combinedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioStream.getAudioTracks()]);
+        mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm; codecs=vp9' });
+
+        const audioDuration = audioElement.duration; // Get the audio duration
+
+        const progressSpan = document.getElementById('progressPercent');
+
+        mediaRecorder.ondataavailable = function(event) {
+          if (event.data.size > 0) {
             chunks.push(event.data);
 
-        }
-            };
+          }
+        };
 
-            mediaRecorder.onstop = function() {
-                const blob = new Blob(chunks, { type: 'video/webm' });
-                const url = URL.createObjectURL(blob);
-                downloadLink.href = url;
-                downloadLink.style.display = 'block';
-                downloadLink.click(); // Trigger the automatic download
-              
-              
-        // Reset progress
-        document.getElementById('progressPercent').innerText = `100%`;
-            };
+        mediaRecorder.onstop = function() {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          downloadLink.href = url;
+          downloadLink.style.display = 'block';
+          downloadLink.click(); // Trigger the automatic download
 
-            mediaRecorder.start();
 
-    // Update progress during recording
-    const progressInterval = setInterval(() => {
-        const elapsedTime = audioElement.currentTime;
-        const progress = Math.min((elapsedTime / audioDuration) * 100, 100);
-        progressSpan.innerText = `${progress.toFixed(1)}%`;
+          // Reset progress
+          document.getElementById('progressPercent').innerText = `100%`;
+        };
 
-        if (elapsedTime >= audioDuration || mediaRecorder.state === 'inactive') {
+        mediaRecorder.start();
+
+        // Update progress during recording
+        const progressInterval = setInterval(() => {
+          const elapsedTime = audioElement.currentTime;
+          const progress = Math.min((elapsedTime / audioDuration) * 100, 100);
+          progressSpan.innerText = `${progress.toFixed(1)}%`;
+
+          if (elapsedTime >= audioDuration || mediaRecorder.state === 'inactive') {
             clearInterval(progressInterval); // Stop updating when done
-          stopRecording();
-        }
-    }, 100);
-        }
+            stopRecording();
+          }
+        }, 100);
+      }
 
-        function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-            }
+      function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          mediaRecorder.stop();
         }
-
-        function onWindowResize() {
-            PARAMS.rendererWidth = window.innerWidth;
-            PARAMS.rendererHeight = window.innerHeight;
-            camera.aspect = PARAMS.rendererWidth / PARAMS.rendererHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(PARAMS.rendererWidth, PARAMS.rendererHeight);
-        }
+      }
     </script>
-</body>
+  </body>
 </html>
