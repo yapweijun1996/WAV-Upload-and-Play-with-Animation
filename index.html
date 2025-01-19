@@ -3,30 +3,29 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Enhanced Winter Audio Visualizer</title>
+    <title>Simple Jarvis 3D Audio Visualizer</title>
     <style>
         body {
             margin: 0;
-            background: linear-gradient(to bottom, #001f3f, #001a33);
             overflow: hidden;
-            font-family: 'Roboto', sans-serif;
-            color: #fff;
+            background-color: #000;
+            font-family: 'Arial', sans-serif;
         }
         #controlPanel {
             position: absolute;
             top: 20px;
-            right: 20px;
-            text-align: left;
+            left: 20px;
             z-index: 1;
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(20, 20, 20, 0.8);
             padding: 15px;
             border-radius: 8px;
-            width: 280px;
+            width: 220px;
+            color: #fff;
         }
         #controlPanel h1 {
-            font-size: 20px;
+            font-size: 16px;
             margin-bottom: 10px;
-            color: #00d1b2;
+            color: #00bfff;
         }
         #controlPanel label {
             display: block;
@@ -37,432 +36,317 @@
             margin-bottom: 15px;
             width: 100%;
         }
-        #controlPanel select, #controlPanel button {
+        #controlPanel button {
             width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            font-size: 16px;
+            padding: 8px;
+            margin-bottom: 8px;
+            font-size: 14px;
             border: none;
             border-radius: 4px;
-        }
-        #controlPanel select {
-            background-color: #005f73;
-            color: #fff;
-        }
-        #controlPanel button {
-            background-color: #00a896;
+            background-color: #00bfff;
             color: #fff;
             cursor: pointer;
         }
-        #controlPanel button:disabled {
-            background-color: #00494d;
-            cursor: not-allowed;
-        }
-        #controlPanel #progressBar {
-            width: 100%;
-            background-color: #00494d;
-            border-radius: 4px;
-            overflow: hidden;
-            height: 20px;
-            margin-bottom: 10px;
-            display: none;
-        }
-        #controlPanel #progressBar div {
-            height: 100%;
-            width: 0%;
-            background-color: #00d1b2;
-            text-align: center;
-            line-height: 20px;
-            color: #fff;
-            font-size: 14px;
-        }
-        #controlPanel #status {
-            font-size: 14px;
-            margin-bottom: 10px;
-        }
         #controlPanel #downloadLink {
             display: none;
-            margin-top: 10px;
-            color: #00d1b2;
+            margin-top: 8px;
+            color: #00bfff;
             text-decoration: none;
-            font-size: 16px;
-            text-align: center;
+            font-size: 14px;
         }
-        #canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-        /* Tooltip styling */
-        .tooltip {
-            position: relative;
-            display: inline-block;
-            cursor: help;
-        }
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 180px;
-            background-color: #333;
-            color: #fff;
-            text-align: center;
-            border-radius: 6px;
-            padding: 8px;
-            position: absolute;
-            z-index: 2;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -90px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            font-size: 12px;
-        }
-        .tooltip:hover .tooltiptext {
-            visibility: visible;
-            opacity: 1;
-        }
-        /* Responsive adjustments */
-        @media screen and (max-width: 768px) {
-            #controlPanel {
-                width: 90%;
-                right: 5%;
-                top: 10px;
-            }
+        #visualizerCanvas {
+            display: block;
         }
     </style>
-    <!-- Import Font -->
-    <link href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap" rel="stylesheet">
-    <!-- Import Icons -->
-    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
 </head>
 <body>
     <div id="controlPanel">
-        <h1><i class="fas fa-snowflake"></i> Winter Audio Visualizer</h1>
-        <label for="upload" class="tooltip">Select Audio File
-            <span class="tooltiptext">Supported formats: WAV, MP3</span>
-        </label>
-        <input type="file" id="upload" accept=".wav, .mp3">
-        <label for="animationType">Choose Animation</label>
-        <select id="animationType">
-            <option value="snowstorm">Dynamic Snowstorm</option>
-            <option value="aurora">Aurora Borealis</option>
-            <option value="winterForest">Winter Forest</option>
-        </select>
-        <button id="startRecording" disabled><i class="fas fa-play"></i> Start Recording</button>
-        <button id="stopRecording" disabled style="display: none;"><i class="fas fa-stop"></i> Stop Recording</button>
-        <div id="progressBar">
-            <div id="progressBarFill">0%</div>
-        </div>
-        <div id="status"></div>
-        <a id="downloadLink" href="#" download="animation.webm" style="display: none;"><i class="fas fa-download"></i> Download Video</a>
+        <h1>Jarvis 3D Visualizer</h1>
+        <label for="upload">Select Audio File</label>
+        <input type="file" id="upload" accept=".mp3,.wav,.ogg">
+        <button id="start" disabled>Start</button>
+        <button id="stop" disabled>Stop</button>
+        <a id="downloadLink" href="#" download="visualization.webm">Download Video</a>
+  <div id="conversionProgress" style="margin-top: 10px; font-size: 14px; color: #fff;">
+    Conversion Progress: <span id="progressPercent">0%</span>
+</div>
     </div>
-    <audio id="audio" controls style="display: none;"></audio>
-    <canvas id="canvas" width="1920" height="1080"></canvas>
+
+    <audio id="audio" style="display: none;"></audio>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.136.0/build/three.min.js"></script>
     <script>
-        const upload = document.getElementById('upload');
-        const animationTypeSelect = document.getElementById('animationType');
-        const audio = document.getElementById('audio');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const startRecordingBtn = document.getElementById('startRecording');
-        const stopRecordingBtn = document.getElementById('stopRecording');
-        const downloadLink = document.getElementById('downloadLink');
-        const status = document.getElementById('status');
-        const progressBar = document.getElementById('progressBar');
-        const progressBarFill = document.getElementById('progressBarFill');
-
-        let audioContext, analyser, dataArray, bufferLength;
-        let mediaRecorder, chunks = [];
-        let WIDTH = canvas.width;
-        let HEIGHT = canvas.height;
-        let animationId;
-        let animationType = 'snowstorm';
-
-        const config = {
-            backgroundColor: '#001f3f',
-            fftSize: 1024,
-            smoothingTimeConstant: 0.8,
+        // ======================
+        // Animation Parameters
+        // ======================
+        const PARAMS = {
+            rendererWidth: window.innerWidth,
+            rendererHeight: window.innerHeight,
+            cameraFov: 100,
+            cameraNear: 0.1,
+            cameraFar: 1000,
+            cameraPositionZ: 50,
+            particleCount: 200, // Reduced particle count
+            sphereRadius: 4,
+            ringCount: 1, // Reduced ring count
+            ringStartRadius: 6,
+            ringRadiusIncrement: 3,
+            particleSize: 0.2,
+            particleSpeed: 0.1, // Reduced speed
+            mainColor: 0x00bfff, // Light blue
         };
+        // ======================
 
-        upload.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file && (file.type === 'audio/wav' || file.type === 'audio/mp3')) {
-                status.textContent = '';
-                startRecordingBtn.disabled = false;
-                const url = URL.createObjectURL(file);
-                audio.src = url;
-                audio.load();
-                if (audioContext) {
-                    audioContext.close();
-                }
-                setupAudioContext();
-            } else {
-                status.textContent = 'Please upload an audio file (WAV or MP3).';
+        let scene, camera, renderer;
+        let group;
+        let animationId;
+        let audioElement, audioContext, analyser, dataArray, bufferLength;
+        let mediaRecorder, chunks = [];
+        let startButton, stopButton, downloadLink;
+
+        init();
+
+        function init() {
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(PARAMS.rendererWidth, PARAMS.rendererHeight);
+            renderer.domElement.id = 'visualizerCanvas';
+            document.body.appendChild(renderer.domElement);
+
+            // Scene and Camera
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(
+                PARAMS.cameraFov,
+                PARAMS.rendererWidth / PARAMS.rendererHeight,
+                PARAMS.cameraNear,
+                PARAMS.cameraFar
+            );
+            camera.position.z = PARAMS.cameraPositionZ;
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            // Group
+            group = new THREE.Group();
+            scene.add(group);
+
+            // Create Jarvis visualizer
+            createJarvisVisualizer();
+
+            // Event listeners
+            window.addEventListener('resize', onWindowResize, false);
+            setupAudio();
+        }
+
+        function createJarvisVisualizer() {
+            // Central sphere
+            const sphereGeometry = new THREE.IcosahedronGeometry(PARAMS.sphereRadius, 1);
+            const sphereMaterial = new THREE.MeshBasicMaterial({
+                color: PARAMS.mainColor,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.7,
+            });
+            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            group.add(sphere);
+
+            // Rotating rings
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: PARAMS.mainColor,
+                wireframe: true,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.5,
+            });
+
+            for (let i = 0; i < PARAMS.ringCount; i++) {
+                const radius = PARAMS.ringStartRadius + i * PARAMS.ringRadiusIncrement;
+                const ringGeometry = new THREE.RingGeometry(radius - 0.1, radius + 0.1, 16);
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.rotation.x = Math.random() * Math.PI;
+                ring.rotation.y = Math.random() * Math.PI;
+                ring.rotation.z = Math.random() * Math.PI;
+                group.add(ring);
             }
-        });
 
-        animationTypeSelect.addEventListener('change', function() {
-            animationType = this.value;
-            initAnimations();
-        });
+            // Particles
+            const particleCount = PARAMS.particleCount;
+            const particlesGeometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const velocities = new Float32Array(particleCount);
 
-        startRecordingBtn.addEventListener('click', function() {
-            startRecording();
-            audio.play();
-            startRecordingBtn.disabled = true;
-            stopRecordingBtn.disabled = true;
-        });
+            for (let i = 0; i < particleCount; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 100;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 100;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
+                velocities[i] = Math.random() * PARAMS.particleSpeed;
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particlesGeometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
+
+            const particlesMaterial = new THREE.PointsMaterial({
+                color: PARAMS.mainColor,
+                size: PARAMS.particleSize,
+                transparent: true,
+                opacity: 0.7,
+            });
+            const particles = new THREE.Points(particlesGeometry, particlesMaterial);
+            particles.updateParticles = function () {
+                const positions = particlesGeometry.attributes.position.array;
+                const velocities = particlesGeometry.attributes.velocity.array;
+                for (let i = 0; i < particleCount; i++) {
+                    positions[i * 3 + 1] += velocities[i];
+                    if (positions[i * 3 + 1] > 50) {
+                        positions[i * 3 + 1] = -50;
+                    }
+                }
+                particlesGeometry.attributes.position.needsUpdate = true;
+            };
+            scene.add(particles);
+        }
+
+        function setupAudio() {
+            audioElement = document.getElementById('audio');
+            const upload = document.getElementById('upload');
+            startButton = document.getElementById('start');
+            stopButton = document.getElementById('stop');
+            downloadLink = document.getElementById('downloadLink');
+
+            upload.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const url = URL.createObjectURL(file);
+                    audioElement.src = url;
+                    audioElement.load();
+                  
+                  
+
+            // Wait for audio metadata to load
+            audioElement.addEventListener('loadedmetadata', function() {
+                startButton.disabled = false;
+                stopButton.disabled = true;
+                document.getElementById('progressPercent').innerText = `0%`; // Reset progress
+                chunks = [];
+            });
+                  
+                }
+            });
+
+            startButton.addEventListener('click', function() {
+                if (!audioContext) setupAudioContext();
+                audioElement.play();
+                animate();
+                startRecording();
+                startButton.disabled = true;
+                stopButton.disabled = false;
+            });
+
+            stopButton.addEventListener('click', function() {
+                audioElement.pause();
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+                stopRecording();
+                startButton.disabled = false;
+                stopButton.disabled = true;
+            });
+        }
 
         function setupAudioContext() {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const source = audioContext.createMediaElementSource(audio);
+            audioContext.resume();
+            const source = audioContext.createMediaElementSource(audioElement);
             analyser = audioContext.createAnalyser();
-            analyser.fftSize = config.fftSize;
-            analyser.smoothingTimeConstant = config.smoothingTimeConstant;
-            source.connect(analyser);
-            analyser.connect(audioContext.destination);
+            analyser.fftSize = 64; // Reduced fftSize
             bufferLength = analyser.frequencyBinCount;
             dataArray = new Uint8Array(bufferLength);
-            initAnimations();
-            draw();
+            source.connect(analyser);
+            analyser.connect(audioContext.destination);
         }
 
-        // Variables for the new animations
-        let snowflakes = [];
-        let auroraParticles = [];
-        let trees = [];
+        function animate() {
+            animationId = requestAnimationFrame(animate);
 
-        function initAnimations() {
-            snowflakes = [];
-            auroraParticles = [];
-            trees = [];
-            if (animationType === 'snowstorm') {
-                // Initialize snowflakes
-                for (let i = 0; i < 300; i++) {
-                    snowflakes.push(createSnowflake());
-                }
-            } else if (animationType === 'aurora') {
-                // Initialize aurora particles
-                for (let i = 0; i < 100; i++) {
-                    auroraParticles.push(createAuroraParticle());
-                }
-            } else if (animationType === 'winterForest') {
-                // Initialize forest
-                for (let i = 0; i < 50; i++) {
-                    trees.push(createTree());
-                }
-                for (let i = 0; i < 200; i++) {
-                    snowflakes.push(createSnowflake());
-                }
-            }
-        }
-
-        function draw() {
-            animationId = requestAnimationFrame(draw);
             analyser.getByteFrequencyData(dataArray);
+            const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
 
-            ctx.clearRect(0, 0, WIDTH, HEIGHT);
-            ctx.fillStyle = config.backgroundColor;
-            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+            // Rotate group
+            group.rotation.y += 0.005 + average / 1000;
+            group.rotation.x += 0.002 + average / 2000;
 
-            switch (animationType) {
-                case 'snowstorm':
-                    drawSnowstorm();
-                    break;
-                case 'aurora':
-                    drawAurora();
-                    break;
-                case 'winterForest':
-                    drawWinterForest();
-                    break;
-            }
-        }
+            // Scale group
+            const scale = 1 + average / 256;
+            group.scale.set(scale, scale, scale);
 
-        function createSnowflake() {
-            return {
-                x: Math.random() * WIDTH,
-                y: Math.random() * HEIGHT,
-                radius: Math.random() * 3 + 1,
-                speed: Math.random() * 1 + 0.5,
-                wind: Math.random() * 1 - 0.5,
-                angle: Math.random() * Math.PI * 2
-            };
-        }
-
-        function drawSnowstorm() {
-            let avgFrequency = dataArray.reduce((a, b) => a + b) / bufferLength;
-
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            for (let flake of snowflakes) {
-                ctx.save();
-                ctx.translate(flake.x, flake.y);
-                ctx.rotate(flake.angle);
-                ctx.beginPath();
-                ctx.arc(0, 0, flake.radius + avgFrequency / 100, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-
-                flake.y += flake.speed + avgFrequency / 50;
-                flake.x += flake.wind + avgFrequency / 200;
-                flake.angle += 0.01;
-
-                if (flake.y > HEIGHT) {
-                    flake.y = -flake.radius;
-                    flake.x = Math.random() * WIDTH;
+            // Update particles
+            scene.children.forEach(child => {
+                if (child.type === 'Points' && child.updateParticles) {
+                    child.updateParticles();
                 }
-                if (flake.x > WIDTH) {
-                    flake.x = 0;
-                } else if (flake.x < 0) {
-                    flake.x = WIDTH;
-                }
-            }
-        }
+            });
 
-        function createAuroraParticle() {
-            return {
-                x: Math.random() * WIDTH,
-                y: Math.random() * HEIGHT / 2,
-                speedY: Math.random() * 0.5 + 0.2,
-                color: `hsla(${Math.random() * 40 + 120}, 100%, 70%, 0.5)`
-            };
-        }
-
-        function drawAurora() {
-            let avgFrequency = dataArray.reduce((a, b) => a + b) / bufferLength;
-            ctx.save();
-            ctx.globalCompositeOperation = 'lighter';
-            for (let particle of auroraParticles) {
-                ctx.fillStyle = particle.color;
-                ctx.beginPath();
-                ctx.arc(particle.x, particle.y, avgFrequency / 30 + 5, 0, Math.PI * 2);
-                ctx.fill();
-
-                particle.y -= particle.speedY + avgFrequency / 100;
-                if (particle.y < 0) {
-                    particle.y = HEIGHT / 2 + Math.random() * HEIGHT / 2;
-                    particle.x = Math.random() * WIDTH;
-                }
-            }
-            ctx.restore();
-        }
-
-        function createTree() {
-            return {
-                x: Math.random() * WIDTH,
-                height: Math.random() * 100 + 50,
-                color: 'rgba(34, 139, 34, 1)'
-            };
-        }
-
-        function drawWinterForest() {
-            // Draw the trees
-            ctx.fillStyle = '#004d00';
-            for (let tree of trees) {
-                ctx.beginPath();
-                ctx.moveTo(tree.x, HEIGHT);
-                ctx.lineTo(tree.x - tree.height / 2, HEIGHT - tree.height);
-                ctx.lineTo(tree.x + tree.height / 2, HEIGHT - tree.height);
-                ctx.closePath();
-                ctx.fill();
-            }
-
-            // Snowflakes that react to audio
-            let avgFrequency = dataArray.reduce((a, b) => a + b) / bufferLength;
-            ctx.fillStyle = 'white';
-            for (let flake of snowflakes) {
-                ctx.beginPath();
-                ctx.arc(flake.x, flake.y, flake.radius + avgFrequency / 200, 0, Math.PI * 2);
-                ctx.fill();
-
-                flake.y += flake.speed + avgFrequency / 100;
-                flake.x += flake.wind;
-
-                if (flake.y > HEIGHT) {
-                    flake.y = -flake.radius;
-                    flake.x = Math.random() * WIDTH;
-                }
-                if (flake.x > WIDTH) {
-                    flake.x = 0;
-                } else if (flake.x < 0) {
-                    flake.x = WIDTH;
-                }
-            }
+            renderer.render(scene, camera);
         }
 
         function startRecording() {
-            chunks = [];
-            const canvasStream = canvas.captureStream(30); // 30 FPS
-            const audioStream = audio.captureStream();
+            const canvasStream = renderer.domElement.captureStream(60); // 30 FPS
+            const audioStream = audioElement.captureStream();
 
             const combinedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioStream.getAudioTracks()]);
             mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm; codecs=vp9' });
 
+    const audioDuration = audioElement.duration; // Get the audio duration
+          
+    const progressSpan = document.getElementById('progressPercent');
+          
             mediaRecorder.ondataavailable = function(event) {
                 if (event.data.size > 0) {
-                    chunks.push(event.data);
-                }
+            chunks.push(event.data);
+
+        }
             };
 
             mediaRecorder.onstop = function() {
                 const blob = new Blob(chunks, { type: 'video/webm' });
                 const url = URL.createObjectURL(blob);
-
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = 'animation.webm';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-
-                status.textContent = 'Recording completed.';
-                progressBar.style.display = 'none';
-            };
-
-            mediaRecorder.onstart = function() {
-                progressBar.style.display = 'block';
-                updateProgressBar();
+                downloadLink.href = url;
+                downloadLink.style.display = 'block';
+                downloadLink.click(); // Trigger the automatic download
+              
+              
+        // Reset progress
+        document.getElementById('progressPercent').innerText = `100%`;
             };
 
             mediaRecorder.start();
-            audio.currentTime = 0;
-            audio.play();
-            status.textContent = 'Recording...';
 
-            startRecordingBtn.disabled = true;
-            stopRecordingBtn.disabled = true;
-            upload.disabled = true;
-            animationTypeSelect.disabled = true;
+    // Update progress during recording
+    const progressInterval = setInterval(() => {
+        const elapsedTime = audioElement.currentTime;
+        const progress = Math.min((elapsedTime / audioDuration) * 100, 100);
+        progressSpan.innerText = `${progress.toFixed(1)}%`;
+
+        if (elapsedTime >= audioDuration || mediaRecorder.state === 'inactive') {
+            clearInterval(progressInterval); // Stop updating when done
+          stopRecording();
+        }
+    }, 100);
         }
 
         function stopRecording() {
-            mediaRecorder.stop();
-            audio.pause();
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-                animationId = null;
-            }
-            status.textContent = 'Processing video...';
-
-            startRecordingBtn.disabled = false;
-            stopRecordingBtn.disabled = true;
-            upload.disabled = false;
-            animationTypeSelect.disabled = false;
-        }
-
-        function updateProgressBar() {
-            const duration = audio.duration;
-            if (duration > 0 && !audio.paused) {
-                const currentTime = audio.currentTime;
-                const progress = (currentTime / duration) * 100;
-                progressBarFill.style.width = progress + '%';
-                progressBarFill.textContent = Math.floor(progress) + '%';
-                requestAnimationFrame(updateProgressBar);
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
             }
         }
 
-        audio.addEventListener('ended', function() {
-            stopRecording();
-        });
+        function onWindowResize() {
+            PARAMS.rendererWidth = window.innerWidth;
+            PARAMS.rendererHeight = window.innerHeight;
+            camera.aspect = PARAMS.rendererWidth / PARAMS.rendererHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(PARAMS.rendererWidth, PARAMS.rendererHeight);
+        }
     </script>
 </body>
 </html>
